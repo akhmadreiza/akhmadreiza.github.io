@@ -1,6 +1,9 @@
 # araweb
 
-Personal website built with [Astro](https://astro.build), MDX, Tailwind CSS, and TypeScript.
+Personal website of Akhmad Reiza Armando, built with [Astro](https://astro.build), MDX, Tailwind CSS, and TypeScript.
+
+- **Live site:** https://akhmadreiza.github.io
+- **Repository:** https://github.com/akhmadreiza/akhmadreiza.github.io
 
 ---
 
