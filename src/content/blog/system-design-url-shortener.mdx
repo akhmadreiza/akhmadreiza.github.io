@@ -1,0 +1,119 @@
+---
+title: "System Design: URL Shortener"
+description: "How does bit.ly actually work? A beginner-friendly walkthrough of designing a URL shortener from scratch — no prior system design experience needed."
+pubDate: 2026-05-01
+tags: ["system-design", "beginner"]
+heroImage: "/images/blog/system-design-url-shortener.jpg"
+---
+
+You've used a URL shortener before. You paste a long, ugly link into something like
+[bit.ly](https://bit.ly) and it gives you back something short like `bit.ly/3xKpQ2`.
+Click that short link, and you end up at the original page.
+
+Simple enough as a user. But how does it actually work underneath?
+
+This is my attempt to figure it out — explained the way I'd want someone to explain it to me.
+
+## What does the system need to do?
+
+Before thinking about how to build it, let's agree on what it needs to do:
+
+1. Take a long URL and return a short one
+2. When someone visits the short URL, redirect them to the original long URL
+3. Do both of these reliably and quickly
+
+That's it. Let's build it.
+
+## The core idea: a lookup table
+
+At heart, a URL shortener is just a big table that maps short codes to long URLs.
+
+```
+short code  →  long URL
+----------     --------
+3xKpQ2      →  https://www.example.com/some/very/long/path?with=query&params=yes
+ab12Cd      →  https://another-website.com/article/how-to-cook-rendang
+```
+
+When someone visits `bit.ly/3xKpQ2`, the system looks up `3xKpQ2` in the table,
+finds the long URL, and sends the browser there. That redirect is the whole product.
+
+## How do you generate the short code?
+
+This is the interesting part. The short code needs to be:
+
+- **Short** — 6 to 8 characters is the sweet spot
+- **Unique** — two different long URLs can't get the same code
+- **URL-safe** — no weird characters that break browsers
+
+A common approach: take a number (like a database ID), and encode it using a
+62-character alphabet — lowercase letters, uppercase letters, and digits
+(`a-z A-Z 0-9`). This is called **Base62 encoding**.
+
+For example:
+- ID `1` → `"b"`
+- ID `100` → `"bM"`
+- ID `1000000` → `"4c92"`
+
+With 7 characters and 62 options per character, you can represent 62⁷ =
+**3.5 trillion** unique URLs. That's more than enough.
+
+## What happens when you shorten a URL?
+
+1. User submits a long URL
+2. The system saves it to the database, which assigns it an auto-incremented ID
+3. The system converts that ID to a Base62 short code
+4. The system stores the mapping: `short code → long URL`
+5. Returns `yourdomain.com/{short code}` to the user
+
+## What happens when someone visits a short link?
+
+1. Browser hits `yourdomain.com/3xKpQ2`
+2. Server extracts the code `3xKpQ2`
+3. Looks it up in the database
+4. Responds with an HTTP `301` or `302` redirect to the original URL
+5. Browser follows the redirect — user lands on the right page
+
+The difference between 301 and 302 matters:
+- **301 (permanent)** — browser caches the redirect, so future visits skip your server entirely. Faster, but you lose click analytics.
+- **302 (temporary)** — browser always checks with your server first. Slower, but you can count every click.
+
+Most URL shorteners use 302 so they can track visits.
+
+## What about scale?
+
+For a small personal tool, the above is all you need. But if you're designing
+for millions of users, a few things become important:
+
+**Database reads are much more frequent than writes.** Every click is a read;
+only creating a new short link is a write. So you can add a cache (like Redis)
+in front of the database to serve popular links without hitting the database
+every time.
+
+**A single server will eventually be a bottleneck.** You can run multiple
+servers behind a load balancer — since each server just reads from the same
+database, this is straightforward to scale out.
+
+## The full picture
+
+```
+User clicks short link
+        ↓
+   Load Balancer
+        ↓
+   App Server  ←→  Cache (Redis)
+        ↓                ↓ (cache miss)
+    Database (stores short code → long URL)
+        ↓
+   302 Redirect → User lands on original page
+```
+
+That's the whole thing. A lookup table, a short code generator, and a redirect.
+The complexity in real systems (custom aliases, expiry dates, analytics dashboards)
+is built on top of this same foundation.
+
+---
+
+I find these kinds of exercises useful not because I'll build the next bit.ly,
+but because breaking down something familiar into its parts is good practice for
+thinking about any system — including the ones I actually work on.

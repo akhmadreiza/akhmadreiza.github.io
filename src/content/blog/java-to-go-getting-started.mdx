@@ -1,0 +1,208 @@
+---
+title: "From Java to Go: A Long-Time Java Dev Getting Started"
+description: "I've written Java for years. Here's what actually surprised me when I started learning Go — the good, the confusing, and the things I wish someone had told me earlier."
+pubDate: 2026-05-08
+tags: ["go", "java", "beginner"]
+heroImage: "/images/blog/java-to-go.jpg"
+---
+
+I've been writing Java for a long time. Long enough that it stopped feeling like a language
+and started feeling like a natural way to think about code — classes, interfaces, Spring beans,
+dependency injection, the whole ecosystem.
+
+Then I had to write Go.
+
+This post is what I wish someone had handed me on day one — not a full language tutorial,
+but the things that actually tripped me up coming from Java. If you're in the same boat,
+hopefully this saves you a few hours of confusion.
+
+## First impression: where did everything go?
+
+The first thing you notice is how *small* Go feels. No classes. No inheritance.
+No generics until recently, and even now they're used sparingly. No exceptions.
+No `null` safety features, no annotations, no Spring.
+
+My first instinct was: *this feels incomplete*. Give it a week. That feeling flips.
+
+Go is small on purpose. The designers made deliberate choices to leave things out.
+Once you stop waiting for the familiar Java machinery to appear, you start to see
+what's actually there.
+
+## Tip 1: Forget classes. Think functions and structs.
+
+In Java, everything lives in a class. In Go, you have **structs** for data and
+**functions** for behaviour. You can attach functions to structs (called methods),
+but there's no inheritance chain.
+
+**Java:**
+```java
+public class User {
+    private String name;
+    private String email;
+
+    public User(String name, String email) {
+        this.name = name;
+        this.email = email;
+    }
+
+    public String greet() {
+        return "Hi, I'm " + this.name;
+    }
+}
+```
+
+**Go:**
+```go
+type User struct {
+    Name  string
+    Email string
+}
+
+func (u User) Greet() string {
+    return "Hi, I'm " + u.Name
+}
+```
+
+No constructor, no `this`, no access modifiers. Exported fields start with a capital
+letter; unexported ones start lowercase. That's the whole visibility model.
+
+## Tip 2: Interfaces are implicit — and that's liberating
+
+In Java, you explicitly declare that a class implements an interface:
+
+```java
+public class EmailService implements NotificationService { ... }
+```
+
+In Go, there's no `implements` keyword. If your type has the methods an interface
+requires, it satisfies that interface automatically.
+
+```go
+type Notifier interface {
+    Send(message string) error
+}
+
+// EmailService automatically satisfies Notifier
+// if it has a Send method — no declaration needed
+type EmailService struct{}
+
+func (e EmailService) Send(message string) error {
+    // send the email
+    return nil
+}
+```
+
+This is called **structural typing**. I found it strange at first, then I realised
+it means you can define an interface *after* you've written the code — including
+around third-party types you don't own. It's genuinely more flexible than Java's approach.
+
+## Tip 3: Errors are values, not exceptions
+
+This is the one that takes the longest to get used to.
+
+In Java, you throw exceptions and catch them somewhere up the call stack.
+In Go, errors are just regular values that functions return. You handle them
+right where they happen, or you pass them up explicitly.
+
+**Java:**
+```java
+try {
+    User user = userRepository.findById(id);
+    // use user
+} catch (NotFoundException e) {
+    // handle it
+}
+```
+
+**Go:**
+```go
+user, err := userRepository.FindByID(id)
+if err != nil {
+    return fmt.Errorf("finding user: %w", err)
+}
+// use user
+```
+
+Yes, you write `if err != nil` a lot. It's verbose. But the upside is you always
+know *exactly* which calls can fail and where you're handling it — no hunting
+through call stacks to figure out what might throw.
+
+The `%w` in `fmt.Errorf` wraps the original error so callers can inspect it —
+that's Go's version of exception chaining.
+
+## Tip 4: Goroutines are not threads (but they feel like them)
+
+Concurrency in Java means threads, ExecutorServices, synchronized blocks, and
+a lot of careful thinking about shared state. It's powerful but heavy.
+
+Go has **goroutines** — lightweight, cheap, and built into the language.
+Starting one is just `go functionName()`.
+
+```go
+go func() {
+    // this runs concurrently
+    processOrder(orderID)
+}()
+```
+
+You can run thousands of goroutines where you'd struggle with hundreds of threads.
+They're managed by Go's runtime, not the OS.
+
+For communication between goroutines, Go has **channels** — think of them as
+typed pipes. The philosophy is: *don't communicate by sharing memory, share memory
+by communicating.*
+
+I'm still getting comfortable with channels. But for basic "run this in the
+background" use cases, goroutines just work without the ceremony Java requires.
+
+## Tip 5: No `null` — but you have zero values
+
+Java's `null` is everywhere and it bites you constantly (`NullPointerException`
+is basically a rite of passage). Go handles this differently.
+
+Every type in Go has a **zero value** — the default when you declare a variable
+without assigning it:
+- `int` → `0`
+- `string` → `""`
+- `bool` → `false`
+- pointers, slices, maps → `nil`
+
+For optional values, Go doesn't have a built-in `Optional<T>` like Java does.
+The common patterns are: return a pointer (which can be `nil`), use the
+comma-ok idiom, or return an error alongside the value.
+
+It's not as safe as Kotlin's null safety, but it's better-behaved than Java's `null`.
+
+## Tip 6: The tooling is refreshingly simple
+
+One thing I genuinely love about Go: the tooling is built in and consistent.
+
+- `go build` — compile
+- `go test` — run tests
+- `go fmt` — format code (everyone's code looks the same, no debates)
+- `go mod` — dependency management
+
+No Maven, no Gradle, no XML. No debating tabs vs spaces — `go fmt` decides.
+The formatter is opinionated and fast and you just accept it. After years of
+Java build configuration, this felt like a relief.
+
+## What I'm still getting used to
+
+Being honest: some things still feel awkward coming from Java.
+
+- **No method overloading** — functions must have unique names. Takes adjustment.
+- **Error handling verbosity** — `if err != nil` everywhere is a lot of typing.
+- **No generics for everything** — Go generics exist but the ecosystem hasn't fully
+  adopted them. You'll see a lot of `interface{}` (or `any`) in older code.
+- **Dependency injection without a framework** — no Spring means wiring things
+  manually. Some people find this cleaner; I'm still deciding.
+
+---
+
+Go hasn't replaced my appreciation for Java. But I understand now why teams
+choose it for services where performance and simplicity matter. It gets out of
+your way faster than Java does.
+
+If you're a Java developer starting with Go, my biggest advice: resist the urge
+to write Java in Go. Lean into the simplicity. The patterns that feel missing
+are often missing on purpose.
