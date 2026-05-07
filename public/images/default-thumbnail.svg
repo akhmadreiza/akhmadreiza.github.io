@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" width="800" height="420">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="shape1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="shape2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.01"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="420" fill="url(#bg)"/>
+
+  <!-- Large circle top-right -->
+  <circle cx="680" cy="-30" r="220" fill="url(#shape1)"/>
+
+  <!-- Large circle bottom-left -->
+  <circle cx="120" cy="460" r="200" fill="url(#shape2)"/>
+
+  <!-- Diagonal band -->
+  <polygon points="0,280 800,80 800,160 0,360" fill="#ffffff" fill-opacity="0.03"/>
+
+  <!-- Small accent circle -->
+  <circle cx="400" cy="210" r="48" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1.5"/>
+  <circle cx="400" cy="210" r="30" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
+
+  <!-- Subtle dot cluster bottom-right -->
+  <circle cx="700" cy="360" r="3" fill="#ffffff" fill-opacity="0.12"/>
+  <circle cx="720" cy="350" r="2" fill="#ffffff" fill-opacity="0.1"/>
+  <circle cx="710" cy="375" r="2" fill="#ffffff" fill-opacity="0.08"/>
+  <circle cx="735" cy="368" r="1.5" fill="#ffffff" fill-opacity="0.1"/>
+</svg>

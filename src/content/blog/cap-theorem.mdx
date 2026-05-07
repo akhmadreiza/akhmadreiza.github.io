@@ -1,0 +1,66 @@
+---
+title: "The CAP Theorem, Explained"
+description: "Why distributed systems can only guarantee two of three properties — consistency, availability, and partition tolerance — and what that means in practice."
+pubDate: 2026-05-05
+tags: ["distributed-systems", "system-design"]
+heroImage: "/images/blog/distributed-systems-cover.jpg"
+---
+
+The CAP theorem, introduced by Eric Brewer in 2000 and later proven by Gilbert
+and Lynch, states that a distributed data store can provide at most **two** of
+the following three guarantees:
+
+- **Consistency** — every read receives the most recent write (or an error)
+- **Availability** — every request receives a non-error response (not necessarily the most recent write)
+- **Partition tolerance** — the system continues to operate when network partitions split nodes into groups that can't communicate
+
+## Why You Can't Have All Three
+
+In any real distributed system, network partitions *will* happen. Nodes go
+down, cables fail, and packets get dropped. Once a partition occurs, you face
+a forced choice: do you return a potentially stale response (choose A), or do
+you refuse to respond until you can guarantee consistency (choose C)?
+
+This is why the real tradeoff in practice is **CP vs AP**, not about dropping
+partition tolerance.
+
+## CP Systems
+
+A CP system sacrifices availability during a partition. When nodes can't
+communicate, the system refuses requests that can't be safely answered.
+
+**Examples:** HBase, Zookeeper, etcd, Consul.
+
+Use when: you can't afford to serve stale data — financial transactions,
+leader elections, configuration management.
+
+## AP Systems
+
+An AP system stays available during a partition, but may return stale data.
+Nodes continue serving reads and accepting writes independently; they reconcile
+conflicts after the partition heals.
+
+**Examples:** Cassandra, CouchDB, DynamoDB.
+
+Use when: availability matters more than strict consistency — shopping carts,
+DNS, social media feeds.
+
+## The Nuance: PACELC
+
+CAP only describes behavior during partitions. PACELC extends it by asking:
+what's the tradeoff *without* a partition (i.e., normally)?
+
+Even under no partition, there's a latency/consistency tradeoff. Replicating a
+write to all nodes before acknowledging is more consistent but slower. Most
+systems let you tune this per-operation.
+
+## What This Means When Designing Systems
+
+1. **Decide your failure mode first.** What's worse: returning stale data, or
+   returning no data?
+2. **Tune at the operation level.** Cassandra's quorum reads give you
+   consistency when you need it without making all reads expensive.
+3. **Design for conflict resolution.** AP systems need a story for when
+   diverged replicas reconcile — last-write-wins, vector clocks, CRDTs.
+
+Next up: how Cassandra implements tunable consistency with quorum reads and writes.

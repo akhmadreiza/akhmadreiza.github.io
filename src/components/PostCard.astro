@@ -1,0 +1,48 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+  compact?: boolean;
+}
+
+const { post, compact = false } = Astro.props;
+const { title, description, pubDate, tags, heroImage } = post.data;
+const thumbnail = heroImage ?? '/images/default-thumbnail.svg';
+const formattedDate = pubDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<article class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:border-blue-300 dark:hover:border-blue-500 transition-colors">
+  <a href={`/blog/${post.id}`} class="block overflow-hidden">
+    <img
+      src={thumbnail}
+      alt={heroImage ? title : ''}
+      class={`w-full object-cover transition-transform duration-300 group-hover:scale-105 ${compact ? 'h-28' : 'h-44'}`}
+    />
+  </a>
+  <div class="p-5">
+    <time class="text-xs text-gray-400 dark:text-gray-500 font-mono">{formattedDate}</time>
+    <h2 class="mt-1 text-lg font-semibold">
+      <a href={`/blog/${post.id}`} class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+        {title}
+      </a>
+    </h2>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{description}</p>
+    {tags.length > 0 && (
+      <div class="mt-3 flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <a
+            href={`/blog/tag/${tag}`}
+            class="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-400 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded transition-colors"
+          >
+            {tag}
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+</article>

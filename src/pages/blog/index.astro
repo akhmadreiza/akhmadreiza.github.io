@@ -1,0 +1,31 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('blog', ({ data }) => !data.draft);
+posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const allTags = [...new Set(posts.flatMap((p) => p.data.tags))].sort();
+---
+
+<Base title="Akhmad Reiza - Blog" description="All blog posts by Reiza.">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Blog</h1>
+
+  {allTags.length > 0 && (
+    <div class="flex flex-wrap gap-2 mb-8">
+      {allTags.map((tag) => (
+        <a
+          href={`/blog/tag/${tag}`}
+          class="text-sm bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-400 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-full transition-colors"
+        >
+          #{tag}
+        </a>
+      ))}
+    </div>
+  )}
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    {posts.map((post) => <PostCard post={post} />)}
+  </div>
+</Base>

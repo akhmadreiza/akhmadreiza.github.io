@@ -1,0 +1,52 @@
+---
+title: "System Design: Consistent Hashing"
+description: "How consistent hashing solves the rehashing problem in distributed caches and why it matters at scale."
+pubDate: 2026-05-01
+tags: ["system-design", "distributed-systems"]
+---
+
+Consistent hashing is a technique used in distributed systems to minimize the
+number of keys that need to be remapped when nodes are added or removed from
+a cluster. It's the core idea behind systems like Amazon Dynamo, Apache
+Cassandra, and many distributed caches.
+
+## The Problem with Naive Hashing
+
+In a simple distributed cache with `n` nodes, the typical approach is:
+
+```
+node = hash(key) % n
+```
+
+This works fine until you add or remove a node. When `n` changes to `n+1`,
+almost every key maps to a different node, causing a cache miss storm.
+
+## The Ring
+
+Consistent hashing maps both keys and nodes onto a virtual ring of hash values
+(typically `[0, 2^32)`). Each key is assigned to the first node clockwise from
+its position on the ring.
+
+When a node is added or removed, only the keys between that node and its
+predecessor on the ring are affected — roughly `1/n` of all keys.
+
+## Virtual Nodes
+
+Real implementations like Cassandra use **virtual nodes** (vnodes): each
+physical node is assigned multiple positions on the ring. This provides:
+
+1. **Better load distribution** — fewer hot spots from uneven spacing
+2. **Smoother rebalancing** — when a node joins, it takes a small slice from
+   many existing nodes rather than a large slice from one
+
+## Replication
+
+To tolerate node failures, most systems replicate each key to the next `k`
+nodes clockwise on the ring. Dynamo uses `k = 3`.
+
+## Summary
+
+Consistent hashing turns an O(n) rehashing problem into an O(1/n) one.
+The ring abstraction also composes cleanly with replication and fault tolerance.
+
+Next: quorum reads and writes on top of this structure.
