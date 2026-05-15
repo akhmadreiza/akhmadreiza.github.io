@@ -9,14 +9,19 @@ export default defineConfig({
   integrations: [mdx(), sitemap()],
   markdown: {
     shikiConfig: {
-      theme: 'tokyo-night',
+      themes: {
+        light: 'github-light',
+        dark: 'tokyo-night',
+      },
+      defaultColor: false,
       transformers: [
         {
           line(node) {
             if (node.properties?.style) {
               node.properties.style = node.properties.style
                 .replace(/background-color:\s*[^;]+;?\s*/gi, '')
-                .replace(/background:\s*[^;]+;?\s*/gi, '');
+                .replace(/background:\s*[^;]+;?\s*/gi, '')
+                .replace(/--shiki-(?:light|dark)-bg:\s*[^;]+;?\s*/gi, '');
             }
           },
         },

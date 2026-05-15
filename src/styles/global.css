@@ -152,6 +152,29 @@
   color: inherit;
 }
 
+/* ── Shiki dual theme (light / dark) ──────────────────────── */
+.prose .astro-code {
+  background-color: #f6f8fa !important;
+}
+
+.prose .astro-code span {
+  color: var(--shiki-light) !important;
+  font-style: var(--shiki-light-font-style) !important;
+  font-weight: var(--shiki-light-font-weight) !important;
+  text-decoration: var(--shiki-light-text-decoration) !important;
+}
+
+.dark .prose .astro-code {
+  background-color: var(--shiki-dark-bg) !important;
+}
+
+.dark .prose .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
 .dark .prose hr {
   border-top-color: #374151;
 }
