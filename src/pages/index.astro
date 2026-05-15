@@ -14,7 +14,7 @@ featuredProjects.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueO
 ---
 
 <Base title="Akhmad Reiza — Home" description="Personal website of Akhmad Reiza, a software engineer writing about distributed systems, code, and ideas.">
-  <section class="mb-16 flex items-center gap-8">
+  <section class="mb-16 flex flex-col sm:flex-row items-center gap-8">
     <div class="flex-1">
       <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">Hi, I'm Akhmad Reiza Armando.</h1>
       <p class="text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -23,7 +23,7 @@ featuredProjects.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueO
         This site is where I write about whatever's on my mind.
       </p>
     </div>
-    <div class="shrink-0">
+    <div class="shrink-0 order-first sm:order-last">
       <img
         src="/images/profile.jpg"
         alt="Reiza's profile picture"
