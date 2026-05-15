@@ -15,6 +15,10 @@ const thumbnail = heroImage ?? '/images/default-thumbnail.svg';
     <img
       src={thumbnail}
       alt={heroImage ? title : ''}
+      width={400}
+      height={176}
+      loading="lazy"
+      decoding="async"
       class="w-full h-44 object-cover transition-transform duration-300 group-hover:scale-105"
     />
   </div>

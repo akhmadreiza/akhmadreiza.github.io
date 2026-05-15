@@ -42,6 +42,10 @@ const formattedUpdatedDate = updatedDate?.toLocaleDateString('en-US', {
       <img
         src={heroImage}
         alt={title}
+        width={768}
+        height={288}
+        loading="eager"
+        decoding="async"
         class="w-full rounded-lg object-cover max-h-72 mb-8"
       />
     )}

@@ -23,6 +23,10 @@ const formattedDate = pubDate.toLocaleDateString('en-US', {
     <img
       src={thumbnail}
       alt={heroImage ? title : ''}
+      width={400}
+      height={176}
+      loading="lazy"
+      decoding="async"
       class={`w-full object-cover transition-transform duration-300 group-hover:scale-105 ${compact ? 'h-28' : 'h-44'}`}
     />
   </a>
