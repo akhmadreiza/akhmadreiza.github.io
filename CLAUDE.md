@@ -33,8 +33,8 @@ Draft posts (`draft: true`) are filtered out with a `getCollection` filter callb
 ### Layouts
 
 Three layouts in `src/layouts/`:
-- `Base.astro` — root HTML shell; imports `global.css`, renders `<Nav>` and `<Footer>`, contains the FOUC-prevention inline script for dark mode
-- `BlogPost.astro` — wraps `Base`, renders hero image, title, date, tags, then `<slot />` inside a `<div class="prose">`
+- `Base.astro` — root HTML shell; imports `global.css`, renders `<Nav>` and `<Footer>`, contains the FOUC-prevention inline script for dark mode. Accepts an optional `ogImage` prop (path string, defaults to `/images/profile.jpg`) — pass a custom image to override the OG/Twitter Card social preview image for that page.
+- `BlogPost.astro` — wraps `Base`, renders hero image, title, date, tags, then `<slot />` inside a `<div class="prose">`, and share buttons (X, LinkedIn, copy link) at the bottom. Passes `heroImage` as `ogImage` to `Base` automatically.
 - `Page.astro` — thin wrapper around `Base` for static pages
 
 ### Dark mode
