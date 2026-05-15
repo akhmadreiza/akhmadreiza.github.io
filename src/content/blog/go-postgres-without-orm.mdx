@@ -1,0 +1,374 @@
+---
+title: "Connecting Go to PostgreSQL Without an ORM"
+description: "A practical, beginner-friendly guide to querying PostgreSQL from Go using pgx — no ORM, no magic, just SQL and Go code you actually understand."
+pubDate: 2026-05-14
+tags: ["go", "postgresql", "beginner", "backend"]
+heroImage: "/images/blog/go-postgres-without-orm.jpg"
+---
+
+Most Go tutorials either skip the database entirely, or jump straight to an ORM like GORM. There's a big useful middle ground that gets ignored: writing SQL yourself, with a solid driver, and understanding exactly what's happening.
+
+This tutorial walks you through connecting a Go service to PostgreSQL using `pgx` — the most widely used PostgreSQL driver for Go. By the end you'll have a working CRUD setup you can actually build on.
+
+## What you'll need
+
+- Go installed (1.21 or later)
+- PostgreSQL running locally — if you have Docker, I'll show you a one-liner to spin it up
+- Basic Go knowledge (functions, structs, error handling)
+- Basic SQL knowledge (CREATE TABLE, SELECT, INSERT)
+
+## Spin up PostgreSQL with Docker
+
+If you don't have PostgreSQL installed locally, this is the fastest way to get one running:
+
+```bash
+docker run --name go-pg-demo \
+  -e POSTGRES_USER=demo \
+  -e POSTGRES_PASSWORD=demo \
+  -e POSTGRES_DB=demodb \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+That gives you a PostgreSQL instance at `localhost:5432` with:
+- User: `demo`
+- Password: `demo`
+- Database: `demodb`
+
+Verify it's running:
+
+```bash
+docker ps
+```
+
+## Set up the project
+
+Create a new directory and initialise a Go module:
+
+```bash
+mkdir go-pg-demo && cd go-pg-demo
+go mod init github.com/yourusername/go-pg-demo
+```
+
+Install `pgx` — specifically the v5 version which includes a connection pool out of the box:
+
+```bash
+go get github.com/jackc/pgx/v5
+```
+
+## Create the table
+
+Connect to your database and create a `users` table. If you used Docker above, you can do this with:
+
+```bash
+docker exec -it go-pg-demo psql -U demo -d demodb
+```
+
+Then run:
+
+```sql
+CREATE TABLE users (
+    id        SERIAL PRIMARY KEY,
+    name      TEXT NOT NULL,
+    email     TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+Type `\q` to exit.
+
+## Project structure
+
+We'll keep it simple with two files:
+
+```
+go-pg-demo/
+├── go.mod
+├── go.sum
+├── main.go
+└── user.go
+```
+
+## Define the User struct
+
+Create `user.go`:
+
+```go
+package main
+
+import "time"
+
+type User struct {
+	ID        int
+	Name      string
+	Email     string
+	CreatedAt time.Time
+}
+```
+
+Clean and straightforward — each field maps directly to a column in the table.
+
+## Connect to PostgreSQL
+
+Create `main.go` and set up the connection pool:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func main() {
+	ctx := context.Background()
+
+	connStr := "postgres://demo:demo@localhost:5432/demodb"
+
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to connect: %v\n", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalf("database unreachable: %v", err)
+	}
+
+	fmt.Println("connected to PostgreSQL")
+}
+```
+
+Run it:
+
+```bash
+go run .
+```
+
+You should see `connected to PostgreSQL`. If you see an error, double-check that your database is running and the connection string matches your credentials.
+
+A note on `pgxpool`: unlike a single connection, a pool manages multiple connections and reuses them. For any real service, you want a pool — it's safer and more efficient.
+
+## Create a user
+
+Add an `insertUser` function to `main.go`:
+
+```go
+func insertUser(ctx context.Context, pool *pgxpool.Pool, name, email string) (User, error) {
+	var u User
+
+	row := pool.QueryRow(ctx,
+		`INSERT INTO users (name, email)
+		 VALUES ($1, $2)
+		 RETURNING id, name, email, created_at`,
+		name, email,
+	)
+
+	err := row.Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
+	if err != nil {
+		return User{}, fmt.Errorf("insertUser: %w", err)
+	}
+
+	return u, nil
+}
+```
+
+A few things worth noting here:
+
+- `$1`, `$2` are positional parameters — pgx substitutes them safely, preventing SQL injection
+- `RETURNING` tells PostgreSQL to send back the inserted row, so you get the generated `id` and `created_at` without a second query
+- `row.Scan` maps each returned column into your struct fields, in order
+
+Call it from `main`:
+
+```go
+user, err := insertUser(ctx, pool, "Reiza", "reiza@example.com")
+if err != nil {
+    log.Fatalf("insert failed: %v", err)
+}
+fmt.Printf("created user: %+v\n", user)
+```
+
+## Get all users
+
+```go
+func getAllUsers(ctx context.Context, pool *pgxpool.Pool) ([]User, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT id, name, email, created_at FROM users ORDER BY id`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getAllUsers: %w", err)
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt); err != nil {
+			return nil, fmt.Errorf("getAllUsers scan: %w", err)
+		}
+		users = append(users, u)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("getAllUsers rows: %w", err)
+	}
+
+	return users, nil
+}
+```
+
+Notice `rows.Err()` at the end — always check it. `rows.Next()` returns `false` both when there are no more rows *and* when an error interrupts iteration. `rows.Err()` tells you which one happened.
+
+## Get a user by ID
+
+```go
+func getUserByID(ctx context.Context, pool *pgxpool.Pool, id int) (User, error) {
+	var u User
+
+	row := pool.QueryRow(ctx,
+		`SELECT id, name, email, created_at FROM users WHERE id = $1`,
+		id,
+	)
+
+	err := row.Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
+	if err != nil {
+		return User{}, fmt.Errorf("getUserByID %d: %w", id, err)
+	}
+
+	return u, nil
+}
+```
+
+When no row matches, `row.Scan` returns `pgx.ErrNoRows`. You can check for it specifically if you want to distinguish "not found" from other errors:
+
+```go
+import "github.com/jackc/pgx/v5"
+
+user, err := getUserByID(ctx, pool, 999)
+if errors.Is(err, pgx.ErrNoRows) {
+    fmt.Println("user not found")
+} else if err != nil {
+    log.Fatalf("unexpected error: %v", err)
+}
+```
+
+## Update a user
+
+```go
+func updateUserName(ctx context.Context, pool *pgxpool.Pool, id int, newName string) error {
+	result, err := pool.Exec(ctx,
+		`UPDATE users SET name = $1 WHERE id = $2`,
+		newName, id,
+	)
+	if err != nil {
+		return fmt.Errorf("updateUserName: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("updateUserName: no user with id %d", id)
+	}
+
+	return nil
+}
+```
+
+`pool.Exec` is for queries that don't return rows — INSERT without RETURNING, UPDATE, DELETE. Always check `RowsAffected()` for updates and deletes; a zero result usually means the ID didn't exist.
+
+## Delete a user
+
+```go
+func deleteUser(ctx context.Context, pool *pgxpool.Pool, id int) error {
+	result, err := pool.Exec(ctx,
+		`DELETE FROM users WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("deleteUser: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("deleteUser: no user with id %d", id)
+	}
+
+	return nil
+}
+```
+
+## Putting it all together
+
+Here's a `main` that exercises all five operations:
+
+```go
+func main() {
+	ctx := context.Background()
+
+	pool, err := pgxpool.New(ctx, "postgres://demo:demo@localhost:5432/demodb")
+	if err != nil {
+		log.Fatalf("connect: %v", err)
+	}
+	defer pool.Close()
+
+	// Create
+	user, err := insertUser(ctx, pool, "Reiza", "reiza@example.com")
+	if err != nil {
+		log.Fatalf("insert: %v", err)
+	}
+	fmt.Printf("created: %+v\n", user)
+
+	// Read all
+	users, err := getAllUsers(ctx, pool)
+	if err != nil {
+		log.Fatalf("get all: %v", err)
+	}
+	fmt.Printf("all users: %+v\n", users)
+
+	// Read one
+	found, err := getUserByID(ctx, pool, user.ID)
+	if err != nil {
+		log.Fatalf("get by id: %v", err)
+	}
+	fmt.Printf("found: %+v\n", found)
+
+	// Update
+	if err := updateUserName(ctx, pool, user.ID, "Akhmad Reiza"); err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	fmt.Println("updated name")
+
+	// Delete
+	if err := deleteUser(ctx, pool, user.ID); err != nil {
+		log.Fatalf("delete: %v", err)
+	}
+	fmt.Println("deleted user")
+}
+```
+
+Run it:
+
+```bash
+go run .
+```
+
+Expected output:
+
+```
+created: {ID:1 Name:Reiza Email:reiza@example.com CreatedAt:2026-05-15 ...}
+all users: [{ID:1 Name:Reiza Email:reiza@example.com CreatedAt:...}]
+found: {ID:1 Name:Reiza Email:reiza@example.com CreatedAt:...}
+updated name
+deleted user
+```
+
+## What you now have
+
+You can connect Go to PostgreSQL, run parameterised queries safely, scan results into structs, and handle errors at every step — without a single dependency beyond pgx.
+
+This is the foundation most real Go services build on. From here the natural next steps are: wrapping these functions in a proper repository interface, adding database migrations with a tool like `goose` or `migrate`, and using environment variables instead of hardcoded connection strings.
+
+But that's for another post. For now — you've got working Go talking to a real database, no magic involved.

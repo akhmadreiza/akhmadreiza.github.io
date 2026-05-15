@@ -1,0 +1,334 @@
+---
+title: "Setting Up a Spring Boot Project with Docker Compose"
+description: "A beginner-friendly guide to running a Spring Boot app with PostgreSQL locally using Docker Compose — no manual database installation required."
+pubDate: 2026-05-13
+tags: ["spring-boot", "java", "docker", "beginner", "backend"]
+heroImage: "/images/blog/spring-boot-docker-compose.jpg"
+---
+
+Most Spring Boot tutorials tell you to install PostgreSQL on your machine. Then you need to create a user, a database, remember the password, and keep it running in the background. Docker Compose is a better way: one command spins up your database, and when you're done, one command tears it down.
+
+This tutorial shows you how to set up a Spring Boot project backed by PostgreSQL, using Docker Compose to manage the database locally.
+
+## What you'll need
+
+- Java 21 installed
+- Docker Desktop running
+- Basic Java knowledge (classes, interfaces, annotations)
+
+That's it. No PostgreSQL installation required.
+
+## Create the project
+
+The fastest way to scaffold a Spring Boot project is [Spring Initializr](https://start.spring.io). Go there and configure:
+
+- **Project:** Maven
+- **Language:** Java
+- **Spring Boot:** 3.x (latest stable)
+- **Dependencies:** Spring Web, Spring Data JPA, PostgreSQL Driver
+
+Click **Generate**, unzip the download, and open it in your editor.
+
+## Project structure
+
+After setup, you'll be working with these files:
+
+```
+spring-tasks/
+├── src/main/java/com/example/tasks/
+│   ├── TasksApplication.java
+│   ├── Task.java
+│   ├── TaskRepository.java
+│   └── TaskController.java
+├── src/main/resources/
+│   └── application.properties
+├── docker-compose.yml
+└── pom.xml
+```
+
+## Define the entity
+
+Create `Task.java`:
+
+```java
+package com.example.tasks;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "tasks")
+public class Task {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String title;
+    private boolean done;
+
+    protected Task() {}
+
+    public Task(String title) {
+        this.title = title;
+        this.done = false;
+    }
+
+    public Long getId()       { return id; }
+    public String getTitle()  { return title; }
+    public boolean isDone()   { return done; }
+    public void setDone(boolean done) { this.done = done; }
+}
+```
+
+`@Entity` tells Spring Data JPA to map this class to a database table. `@GeneratedValue` means the database assigns the `id` — same idea as `SERIAL` in PostgreSQL.
+
+## Define the repository
+
+```java
+package com.example.tasks;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface TaskRepository extends JpaRepository<Task, Long> {}
+```
+
+That's the whole file. `JpaRepository` gives you `findAll`, `findById`, `save`, `deleteById`, and more — all without writing SQL. For straightforward CRUD like this, it's the right tool.
+
+## Write the controller
+
+```java
+package com.example.tasks;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/tasks")
+public class TaskController {
+
+    private final TaskRepository repo;
+
+    public TaskController(TaskRepository repo) {
+        this.repo = repo;
+    }
+
+    @GetMapping
+    public List<Task> getAll() {
+        return repo.findAll();
+    }
+
+    @PostMapping
+    public Task create(@RequestBody Task task) {
+        return repo.save(task);
+    }
+
+    @PatchMapping("/{id}/done")
+    public ResponseEntity<Task> markDone(@PathVariable Long id) {
+        return repo.findById(id)
+            .map(task -> {
+                task.setDone(true);
+                return ResponseEntity.ok(repo.save(task));
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        if (!repo.existsById(id)) return ResponseEntity.notFound().build();
+        repo.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+```
+
+Spring wires `TaskRepository` in through the constructor — that's constructor injection, and it's the recommended approach over field injection with `@Autowired`.
+
+## Configure the datasource
+
+Open `src/main/resources/application.properties`:
+
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/tasksdb
+spring.datasource.username=tasks
+spring.datasource.password=tasks
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+```
+
+`ddl-auto=update` tells Hibernate to create the `tasks` table on first run and update it if the schema changes. Fine for local development — in production you'd swap this for Flyway or Liquibase migrations.
+
+## Write docker-compose.yml
+
+Create `docker-compose.yml` in the project root:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tasks
+      POSTGRES_PASSWORD: tasks
+      POSTGRES_DB: tasksdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+The named volume `postgres_data` persists your data between restarts. Without it, every `docker compose down` wipes the database.
+
+## Start the database
+
+```bash
+docker compose up -d
+```
+
+The `-d` flag runs it in the background. Verify it's up:
+
+```bash
+docker compose ps
+```
+
+You should see `postgres` with status `running`.
+
+## Run the application
+
+```bash
+./mvnw spring-boot:run
+```
+
+On first run Maven downloads dependencies — takes a minute. After that it's fast. You'll see Spring Boot finish with something like:
+
+```
+Started TasksApplication in 2.3 seconds
+```
+
+## Try it out
+
+Create a task:
+
+```bash
+curl -s -X POST http://localhost:8080/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Write tests"}' | jq
+```
+
+Expected response:
+
+```json
+{
+  "id": 1,
+  "title": "Write tests",
+  "done": false
+}
+```
+
+Get all tasks:
+
+```bash
+curl -s http://localhost:8080/tasks | jq
+```
+
+Mark it done:
+
+```bash
+curl -s -X PATCH http://localhost:8080/tasks/1/done | jq
+```
+
+Delete it:
+
+```bash
+curl -s -X DELETE http://localhost:8080/tasks/1
+```
+
+## Containerise the application
+
+If you want to run everything in Docker — useful for sharing the project or running in CI — add a `Dockerfile`:
+
+```dockerfile
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /app
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline
+COPY src ./src
+RUN ./mvnw package -DskipTests
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+This is a multi-stage build: the first stage compiles and packages the jar, the second copies only the jar into a smaller JRE image. The result is significantly smaller than including the full JDK.
+
+Then update `docker-compose.yml` to include the app:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tasks
+      POSTGRES_PASSWORD: tasks
+      POSTGRES_DB: tasksdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tasksdb
+      SPRING_DATASOURCE_USERNAME: tasks
+      SPRING_DATASOURCE_PASSWORD: tasks
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+```
+
+Notice the datasource URL now uses `postgres` (the service name) instead of `localhost` — that's how Docker's internal network resolves service names between containers.
+
+Build and run everything:
+
+```bash
+docker compose up --build
+```
+
+## Stop and clean up
+
+Stop without removing data:
+
+```bash
+docker compose stop
+```
+
+Stop and remove containers (data is preserved in the volume):
+
+```bash
+docker compose down
+```
+
+Remove everything including the volume (resets the database):
+
+```bash
+docker compose down -v
+```
+
+## What you now have
+
+A Spring Boot app backed by PostgreSQL, running entirely through Docker Compose. No local database install, no leftover processes to kill, no port conflicts between projects.
+
+From here the natural next steps are: swapping `ddl-auto=update` for Flyway migrations, adding input validation with Bean Validation, or wiring in Spring Security. But for day-to-day local development, this setup gets out of your way and lets you focus on writing code.
