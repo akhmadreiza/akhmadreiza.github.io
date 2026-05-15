@@ -67,6 +67,15 @@ Run all commands from the project root:
 
    Without `heroImage` the post shows the default gradient thumbnail automatically.
 
+   **Preferred workflow — download from Unsplash at the right size:**
+
+   ```bash
+   curl -sL "https://images.unsplash.com/photo-<id>?w=1200&h=630&fit=crop&auto=format" \
+     -o public/images/blog/your-post-slug.jpg
+   ```
+
+   Replace `<id>` with the Unsplash photo ID (the part after `/photo-` in the URL). This gives you a correctly-cropped 1200 × 630 JPEG ready to use.
+
 ---
 
 ### Adding a project

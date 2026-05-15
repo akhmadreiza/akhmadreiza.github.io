@@ -53,6 +53,19 @@ Class-based. `@custom-variant dark (&:where(.dark, .dark *))` in `global.css` ov
 
 Prose dark mode is handled with plain CSS (`.dark .prose { … }`) in `global.css`, not Tailwind utilities.
 
+### Syntax highlighting
+
+Shiki dual-theme is configured in `astro.config.mjs` with `themes: { light: 'github-light', dark: 'tokyo-night' }` and `defaultColor: false`. This outputs CSS custom properties (`--shiki-light`, `--shiki-dark`, etc.) on each `<span>` instead of a single hardcoded colour.
+
+`global.css` wires up the themes:
+- `.prose .astro-code` — hardcoded `background-color: #f6f8fa` (GitHub Light's background matches the page white, so it needs an explicit value)
+- `.dark .prose .astro-code` — uses `var(--shiki-dark-bg)` for Tokyo Night's background
+- Span colours switch via `color: var(--shiki-light)` / `color: var(--shiki-dark)` with `!important`
+
+A Shiki transformer in `astro.config.mjs` strips `background-color` and `background` from individual line `<span>` style attributes so they don't override the block background.
+
+**Specificity trap to avoid:** `.dark .prose code` (specificity 0,2,1) overrides `.prose pre code` (0,1,2), which paints the inline-code dark background (`#1f2937`) onto `<code>` inside `<pre>` blocks — a different colour from Shiki's block background. The fix is `.dark .prose pre code { background: none; color: inherit; }` at specificity 0,3,2, already in `global.css`. Do not remove it.
+
 ### Tailwind setup
 
 Tailwind v4 — configured via the Vite plugin (`@tailwindcss/vite`), not a `tailwind.config.js`. All customisation goes in `src/styles/global.css` using `@import "tailwindcss"` and `@custom-variant`.
