@@ -33,9 +33,19 @@ Draft posts (`draft: true`) are filtered out with a `getCollection` filter callb
 ### Layouts
 
 Three layouts in `src/layouts/`:
-- `Base.astro` — root HTML shell; imports `global.css`, renders `<Nav>` and `<Footer>`, contains the FOUC-prevention inline script for dark mode. Accepts an optional `ogImage` prop (path string, defaults to `/images/profile.jpg`) — pass a custom image to override the OG/Twitter Card social preview image for that page.
-- `BlogPost.astro` — wraps `Base`, renders hero image, title, date, tags, then `<slot />` inside a `<div class="prose">`, and share buttons (X, LinkedIn, copy link) at the bottom. Passes `heroImage` as `ogImage` to `Base` automatically.
+- `Base.astro` — root HTML shell; imports `global.css`, renders `<Nav>` and `<Footer>`, contains the FOUC-prevention inline script for dark mode, all SEO/OG/Twitter Card meta tags, and the Umami analytics script. Accepts an optional `ogImage` prop (path string, defaults to `/images/profile.jpg`) — pass a custom image to override the OG/Twitter Card social preview image for that page.
+- `BlogPost.astro` — wraps `Base`, renders hero image, title, date, reading time, tags, `<slot />` inside `.prose`, then prev/next post navigation, and share buttons (X, LinkedIn, copy link) at the bottom. Code blocks inside `.prose` get a copy button injected via an inline script. Passes `heroImage` as `ogImage` to `Base` automatically.
 - `Page.astro` — thin wrapper around `Base` for static pages
+
+### Images
+
+Two locations with different behaviour:
+- `src/assets/` — imported images (e.g. `import img from '../assets/profile.jpg'`). Astro optimizes these at build time: converts to WebP, resizes, generates hashes. Use `<Image>` from `astro:assets`. The profile photo lives here.
+- `public/images/` — content images referenced as strings in frontmatter (`heroImage: "/images/blog/…"`). Not optimized by Astro (no WebP conversion), but `<img>` tags include `loading="lazy"` and explicit dimensions to prevent layout shift.
+
+### Utilities
+
+- `src/utils/readingTime.ts` — exports `readingTime(body: string): string`. Takes raw MDX body text, counts words at 200wpm, returns e.g. `"4 min read"`. Used in `PostCard.astro` and passed as a prop from `[slug].astro` to `BlogPost.astro`.
 
 ### Dark mode
 
