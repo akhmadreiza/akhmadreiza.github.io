@@ -1,0 +1,67 @@
+---
+title: "I Built This Site Pair-Programming With an AI. Here's What That Was Like."
+description: "The honest story of how this personal site came to life — built together with Claude Code, one conversation at a time."
+pubDate: 2026-05-15
+tags: ["meta", "ai"]
+heroImage: "/images/blog/building-with-claude.jpg"
+---
+
+This site was not built alone.
+
+I mean that literally. The person who wrote most of the code sitting behind these pages is not entirely me — it's me and an AI, working together in a conversation. I want to tell that story honestly, because I think it says something interesting about where software development is right now.
+
+## How it started
+
+I wanted a personal site. Not a Medium profile, not a Substack, not another platform I don't own. Something mine — where I could write about software, food, travel, and whatever else is on my mind without asking anyone's permission.
+
+I'd been meaning to do it for a while. The classic trap: I knew too much to pick something quickly, and not enough free time to deliberate properly. So I decided to just start, and I used Claude Code as my pair programmer from day one.
+
+I typed what I wanted. Claude wrote the code. I reviewed it, pushed back when something felt off, asked questions when I didn't understand, and made decisions about things that only I could decide — like what the site should feel like, what to write, what to cut.
+
+## What we actually built
+
+The stack ended up being Astro 6 with MDX for content, Tailwind v4 for styling, and GitHub Pages for hosting. Nothing exotic. The content lives in markdown files with schema validation — if I forget a required field in a blog post's frontmatter, the build fails instead of silently breaking something at runtime. That was Claude's suggestion, and it's the kind of quiet correctness I appreciate.
+
+The typography is minimal. The dark mode is class-based, with a small inline script in the `<head>` to apply the saved preference before paint so the page doesn't flash white before going dark. There's an RSS feed, a projects section, and a blog. That's it.
+
+Over a few sessions, we also:
+- Made the nav responsive — on mobile it shows just "Reiza" instead of my full name, which was taking up too much space
+- Stacked the homepage hero vertically on mobile, with the profile picture on top
+- Added proper SEO meta tags, Open Graph tags, a canonical URL, and a `robots.txt`
+- Submitted the site to Google Search Console
+- Replaced the default Astro favicon with a custom "R" lettermark
+
+None of these are complicated tasks. But doing them alone, I would have context-switched a dozen times, googled things I half-remembered, and probably stopped before finishing.
+
+## What working with Claude is actually like
+
+The honest answer: it feels like working with a very fast, very knowledgeable colleague who has no ego and infinite patience.
+
+When I said "make it responsive for mobile," Claude asked the right clarifying question — or just did the right thing and explained why. When I pushed back ("I still don't get where the logic lives"), it explained without being condescending. When I said "commit this," it committed only the relevant file and left unrelated changes out.
+
+What surprised me most was the explanations. I asked once where the responsive logic was in the Nav component, because I couldn't see it clearly. Claude walked me through exactly what each Tailwind class was doing:
+
+```html
+<span class="sm:hidden">Reiza</span>
+<span class="hidden sm:inline">Akhmad Reiza Armando</span>
+```
+
+Two spans, always in the DOM. Tailwind just toggles their `display` property based on viewport width. I knew Tailwind well enough to use it, but having it explained that precisely made it click in a way that will stick.
+
+That happened a lot. I came away from building this site understanding it, not just owning it.
+
+## What it isn't
+
+I want to be clear about what this collaboration is not.
+
+Claude does not have opinions about what I should write. It does not know what kind of engineer I am, what I care about, or what makes this site worth reading. That's all mine. The words in every post are mine. The decisions about what to build, what to skip, what tone to take — mine.
+
+What Claude does is remove the friction between having an idea and having it exist. That's not nothing. That might actually be everything, for the kind of side project that otherwise dies on the todo list.
+
+## Would I do it again?
+
+Already doing it. This post was written after a session where we also fixed a sitemap issue, swapped out a favicon, and debugged a Google Search Console verification. The conversation just keeps going.
+
+I don't know what the right mental model is for this kind of collaboration yet. It's not quite pair programming — there's no back-and-forth negotiation of approach. It's not quite using a tool — the thing on the other end clearly understands context, intent, and trade-offs.
+
+For now I'm calling it what it felt like: building something together, one conversation at a time.
