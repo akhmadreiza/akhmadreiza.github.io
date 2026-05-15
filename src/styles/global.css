@@ -81,6 +81,31 @@
   overflow-x: auto;
   margin: 1.5em 0;
   font-size: 0.875em;
+  position: relative;
+}
+
+.prose pre .copy-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  padding: 0.3rem;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.08);
+  color: #9ca3af;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  line-height: 0;
+}
+
+.prose pre:hover .copy-btn {
+  opacity: 1;
+}
+
+.prose pre .copy-btn:hover {
+  background: rgba(255,255,255,0.15);
+  color: #f9fafb;
 }
 
 .prose pre code {
