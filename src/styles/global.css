@@ -74,8 +74,6 @@
 }
 
 .prose pre {
-  background: #1f2937;
-  color: #f9fafb;
   padding: 1.25em 1.5em;
   border-radius: 8px;
   overflow-x: auto;
@@ -147,6 +145,11 @@
 .dark .prose code {
   background: #1f2937;
   color: #e5e7eb;
+}
+
+.dark .prose pre code {
+  background: none;
+  color: inherit;
 }
 
 .dark .prose hr {
