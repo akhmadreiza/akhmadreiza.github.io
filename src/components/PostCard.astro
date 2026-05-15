@@ -1,5 +1,6 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import { readingTime } from '../utils/readingTime';
 
 interface Props {
   post: CollectionEntry<'blog'>;
@@ -8,6 +9,7 @@ interface Props {
 
 const { post, compact = false } = Astro.props;
 const { title, description, pubDate, tags, heroImage } = post.data;
+const timeToRead = readingTime(post.body ?? '');
 const thumbnail = heroImage ?? '/images/default-thumbnail.svg';
 const formattedDate = pubDate.toLocaleDateString('en-US', {
   year: 'numeric',
@@ -25,7 +27,11 @@ const formattedDate = pubDate.toLocaleDateString('en-US', {
     />
   </a>
   <div class="p-5">
-    <time class="text-xs text-gray-400 dark:text-gray-500 font-mono">{formattedDate}</time>
+    <div class="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 font-mono">
+      <time>{formattedDate}</time>
+      <span>·</span>
+      <span>{timeToRead}</span>
+    </div>
     <h2 class="mt-1 text-lg font-semibold">
       <a href={`/blog/${post.id}`} class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
         {title}
