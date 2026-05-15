@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://akhmadreiza.github.io/sitemap-index.xml
