@@ -7,17 +7,31 @@ import type { GetStaticPaths } from 'astro';
 export const getStaticPaths: GetStaticPaths = async () => {
   const posts = await getCollection('blog', ({ data }) => !data.draft);
   const sorted = posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
-  return sorted.map((post, index) => ({
-    params: { slug: post.id },
-    props: {
-      post,
-      prevPost: index < sorted.length - 1 ? { id: sorted[index + 1].id, title: sorted[index + 1].data.title } : undefined,
-      nextPost: index > 0 ? { id: sorted[index - 1].id, title: sorted[index - 1].data.title } : undefined,
-    },
-  }));
+  return sorted.map((post, index) => {
+    const relatedPosts = posts
+      .filter(p => p.id !== post.id)
+      .map(p => ({
+        post: p,
+        sharedTags: (post.data.tags ?? []).filter(t => (p.data.tags ?? []).includes(t)).length,
+      }))
+      .filter(({ sharedTags }) => sharedTags > 0)
+      .sort((a, b) => b.sharedTags - a.sharedTags)
+      .slice(0, 3)
+      .map(({ post }) => post);
+
+    return {
+      params: { slug: post.id },
+      props: {
+        post,
+        prevPost: index < sorted.length - 1 ? { id: sorted[index + 1].id, title: sorted[index + 1].data.title } : undefined,
+        nextPost: index > 0 ? { id: sorted[index - 1].id, title: sorted[index - 1].data.title } : undefined,
+        relatedPosts,
+      },
+    };
+  });
 };
 
-const { post, prevPost, nextPost } = Astro.props;
+const { post, prevPost, nextPost, relatedPosts } = Astro.props;
 const { Content } = await render(post);
 const { title, description, pubDate, updatedDate, tags, heroImage } = post.data;
 const timeToRead = readingTime(post.body ?? '');
@@ -33,6 +47,7 @@ const timeToRead = readingTime(post.body ?? '');
   readingTime={timeToRead}
   prevPost={prevPost}
   nextPost={nextPost}
+  relatedPosts={relatedPosts}
 >
   <Content />
 </BlogPost>

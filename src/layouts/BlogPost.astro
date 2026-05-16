@@ -1,5 +1,7 @@
 ---
 import Base from './Base.astro';
+import PostCard from '../components/PostCard.astro';
+import type { CollectionEntry } from 'astro:content';
 
 interface NavPost {
   id: string;
@@ -16,9 +18,10 @@ interface Props {
   readingTime?: string;
   prevPost?: NavPost;
   nextPost?: NavPost;
+  relatedPosts?: CollectionEntry<'blog'>[];
 }
 
-const { title, description, pubDate, updatedDate, tags = [], heroImage, readingTime, prevPost, nextPost } = Astro.props;
+const { title, description, pubDate, updatedDate, tags = [], heroImage, readingTime, prevPost, nextPost, relatedPosts = [] } = Astro.props;
 
 const pageURL = new URL(Astro.url.pathname, Astro.site).href;
 const twitterShareURL = `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageURL)}&text=${encodeURIComponent(title)}`;
@@ -95,6 +98,15 @@ const formattedUpdatedDate = updatedDate?.toLocaleDateString('en-US', {
           )}
         </div>
       </nav>
+    )}
+
+    {relatedPosts.length > 0 && (
+      <div class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Related posts</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {relatedPosts.map(post => <PostCard post={post} compact />)}
+        </div>
+      </div>
     )}
 
     <div class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
