@@ -1,0 +1,151 @@
+---
+title: "How I Built This Blog — And Why I Chose Astro"
+description: "A technical walkthrough of this site's architecture: Astro 6, content collections, Tailwind v4, dual syntax highlighting, dark mode without flash, and GitHub Pages deployment."
+pubDate: 2026-05-25
+tags: ["meta", "engineering", "astro"]
+---
+
+I've rebuilt my personal site more times than I'd like to admit. WordPress, Hugo, a bespoke Express app I immediately regretted, a Nuxt experiment that made it to staging but not production. Each time I quit because the framework got in my way faster than it helped me.
+
+This time it stuck. Here's why, and what I actually built.
+
+## Why Astro
+
+My requirements were simple: write in Markdown (or MDX for the occasional interactive bit), ship fast pages, and not spend my weekends fighting configuration. Astro does all three without asking much in return.
+
+The thing that hooked me first was **content collections**. You define a Zod schema for your frontmatter, and Astro validates every post at build time. Forget a required field, and the build fails with a clear error — not a runtime surprise at 2am when someone finally visits that old post. For a solo blog where "the test suite" is me manually clicking around, this is exactly the kind of safety net I wanted.
+
+```ts
+const blog = defineCollection({
+  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/blog' }),
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    pubDate: z.coerce.date(),
+    tags: z.array(z.string()).default([]),
+    draft: z.boolean().default(false),
+    heroImage: z.string().optional(),
+  }),
+});
+```
+
+Draft posts get filtered out at the collection level — they never appear in routes, the RSS feed, or the sitemap, without any conditional logic scattered across pages.
+
+## Tailwind v4 — No Config File
+
+I wanted to use Tailwind v4, which ships with a CSS-first approach. There's no `tailwind.config.js` anymore. Configuration lives entirely in `global.css` using `@import "tailwindcss"` and `@custom-variant`.
+
+The one gotcha: dark mode. Tailwind v4 defaults to the `prefers-color-scheme` media query, but I wanted class-based toggling (so a user preference stored in `localStorage` overrides their system setting). One line in CSS fixes it:
+
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
+
+That overrides the default and makes `dark:` utilities respond to `.dark` on the `<html>` element instead of the media query.
+
+## Dark Mode Without the Flash
+
+Class-based dark mode has a classic problem: the JS that applies the `.dark` class runs after the HTML is parsed and rendered, which means a flash of white background before the dark theme kicks in — even on a repeat visit.
+
+The fix is an inline script in `<head>`, before any CSS or JS loads:
+
+```html
+<script is:inline>
+  const theme = localStorage.getItem('theme');
+  if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+</script>
+```
+
+Astro's `is:inline` directive tells it not to bundle or defer this script — it runs synchronously, right there in the head, so the class is applied before the first paint. No flash.
+
+## Dual Syntax Highlighting
+
+This took me longer than I expected to get right. I wanted code blocks to use a light theme (GitHub Light) during the day and a dark theme (Tokyo Night) at night — automatically switching with the rest of the site.
+
+Shiki, Astro's built-in highlighter, supports dual themes via CSS custom properties:
+
+```js
+// astro.config.mjs
+markdown: {
+  shikiConfig: {
+    themes: { light: 'github-light', dark: 'tokyo-night' },
+    defaultColor: false,
+  },
+}
+```
+
+With `defaultColor: false`, Shiki outputs `--shiki-light` and `--shiki-dark` CSS variables on each `<span>` instead of a single hardcoded color. Then in CSS:
+
+```css
+.prose .astro-code span {
+  color: var(--shiki-light) !important;
+}
+.dark .prose .astro-code span {
+  color: var(--shiki-dark) !important;
+}
+```
+
+There's a specificity trap worth mentioning. `.dark .prose code` (specificity 0,2,1) beats `.prose pre code` (0,1,2), which means dark mode was painting a gray background onto `<code>` inside `<pre>` blocks — a different shade from Shiki's block background. The fix:
+
+```css
+.dark .prose pre code {
+  background: none;
+  color: inherit;
+}
+```
+
+Specificity 0,3,2 wins. It's in `global.css` and I will absolutely forget why it's there someday, which is why I'm writing it down now.
+
+## Image Handling: Two Buckets
+
+Astro has two places for images with very different behavior:
+
+- **`src/assets/`** — imported images. Astro processes these at build time: converts to WebP, resizes, generates content-hashed filenames. Use `<Image>` from `astro:assets`. The profile photo lives here.
+- **`public/images/`** — static images referenced as strings in frontmatter (e.g. `heroImage: "/images/blog/post.jpg"`). Astro copies these as-is with no optimization. What you get is what you uploaded.
+
+For blog post hero images, I use `public/images/` because they're referenced in frontmatter as plain strings, and I want to control the filenames. For the profile photo, I use `src/assets/` to get the WebP conversion and build-time optimization for free.
+
+## Routing and Dynamic Pages
+
+All blog posts are statically generated from a `getStaticPaths` function:
+
+```ts
+// src/pages/blog/[slug].astro
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map(post => ({
+    params: { slug: post.id },
+    props: post,
+  }));
+}
+```
+
+One API note: Astro v6 uses `render(entry)` imported from `astro:content`, not `entry.render()`. The old method still exists in some tutorials and will silently fail in ways that are confusing.
+
+Tag pages work the same way — collect all tags across non-draft posts at build time, generate a static page per tag.
+
+## Deployment: GitHub Actions to GitHub Pages
+
+The deploy pipeline is a single GitHub Actions workflow that triggers on every push to `main`:
+
+1. Check out the repo
+2. Install Node 22
+3. Run `npm run build`
+4. Upload the `dist/` folder as a Pages artifact
+5. Deploy it
+
+The key setting: Pages source must be **GitHub Actions** (not a branch) in the repo settings, otherwise the upload step has nowhere to go.
+
+The whole pipeline takes about 90 seconds. Fast enough that I don't think about it.
+
+## What I'd Do Differently
+
+Not much, honestly. If I were starting today I'd still pick Astro. The content collections API is the killer feature for a writing-focused site — schema validation on frontmatter is the kind of guardrail that pays off slowly and quietly.
+
+The one thing I'd do earlier is set up the dual syntax highlighting from the start. I added it partway through and had to audit existing code blocks to make sure nothing broke. Minor, but avoidable.
+
+---
+
+The site is open source at [github.com/akhmadreiza/akhmadreiza.github.io](https://github.com/akhmadreiza/akhmadreiza.github.io) if you want to poke at the actual implementation. Most of the interesting bits are in `astro.config.mjs`, `global.css`, and `src/content.config.ts`.
